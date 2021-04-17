@@ -1,129 +1,174 @@
 include(Options)
 
-if(NOT CMAKE_BUILD_TYPE)
-	set(CMAKE_BUILD_TYPE "Release")
+set_property(GLOBAL PROPERTY DEBUG_CONFIGURATIONS Debug DebugOpt RelWithDebInfo)
+
+set(HHVM_WHOLE_ARCHIVE_LIBRARIES
+    hphp_runtime_static
+    hphp_runtime_ext
+   )
+
+set(HHVM_WRAP_SYMS)
+
+# Oniguruma ('onig') must be first:
+#
+# oniguruma has some of its own implementations of POSIX regex functions,
+# like regcomp() and regexec(). We use onig everywhere, for both its own
+# special functions and for the POSIX replacements. This means that the
+# linker needs to pick the implementions of the POSIX regex functions from
+# onig, not libc.
+#
+# On Linux, that works out fine, since the linker sees onig on the link
+# line before (implicitly) libc. However, on OS X, despite the manpage for
+# ld claiming otherwise about indirect dylib dependencies, as soon as we
+# include one of the libs here that pull in libSystem.B, the linker will
+# pick the implementations of those functions from libc, not from onig.
+# And since we've included the onig headers, which have very slightly
+# different definintions for some of the key data structures, things go
+# quite awry -- this manifests as infinite loops or crashes when calling
+# the PHP split() function.
+#
+# So make sure to link onig first, so its implementations are picked.
+#
+# Using the generator expression to explicitly pull the path in early, otherwise
+# it gets resolved later and put later in the build arguments, and makes
+# hphp/test/slow/ext_preg segfault.
+set(HHVM_LINK_LIBRARIES
+  $<TARGET_PROPERTY:onig,INTERFACE_LINK_LIBRARIES>
+  ${HHVM_WRAP_SYMS}
+  hphp_analysis
+  hphp_system
+  hphp_parser
+  hphp_zend
+  hphp_util
+  hphp_hhbbc
+  jit_sort
+  vixl neo)
+
+if(ENABLE_FASTCGI)
+  LIST(APPEND HHVM_LINK_LIBRARIES hphp_thrift)
+  LIST(APPEND HHVM_LINK_LIBRARIES hphp_proxygen)
+  include(CheckCXXSourceCompiles)
+  CHECK_CXX_SOURCE_COMPILES("#include <pthread.h>
+  int main() {
+    return pthread_mutex_timedlock();
+  }" PTHREAD_TIMEDLOCK)
+  if (NOT PTHREAD_TIMEDLOCK)
+    add_definitions(-DTHRIFT_MUTEX_EMULATE_PTHREAD_TIMEDLOCK)
+  endif()
 endif()
 
-IF(NOT DEFINED CMAKE_PREFIX_PATH)
-  message(STATUS "CMAKE_PREFIX_PATH was missing, proceeding anyway")
+if(HHVM_DYNAMIC_EXTENSION_DIR)
+  add_definitions(-DHHVM_DYNAMIC_EXTENSION_DIR="${HHVM_DYNAMIC_EXTENSION_DIR}")
+else()
+  if(UNIX)
+    add_definitions(-DHHVM_DYNAMIC_EXTENSION_DIR="${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/hhvm/extensions")
+  endif()
 endif()
 
-if(CMAKE_COMPILER_IS_GNUCC)
-	INCLUDE(CheckCSourceCompiles)
-	CHECK_C_SOURCE_COMPILES("#define GCC_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
-#if GCC_VERSION < 40300
-#error Need GCC 4.3.0+
-#endif
-int main() { return 0; }" HAVE_GCC_43)
-
-	if(NOT HAVE_GCC_43)
-		message(FATAL_ERROR "Need at least GCC 4.3")
-	endif()
-
-endif()
-
-set(FREEBSD FALSE)
-set(LINUX FALSE)
-
-if("${CMAKE_SYSTEM_NAME}" STREQUAL "FreeBSD")
-	set(FREEBSD TRUE)
-endif()
-
-if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
-	set(LINUX TRUE)
-endif()
+# Look for the chrpath tool so we can warn if it's not there
+SET(FOUND_CHRPATH OFF)
+IF(UNIX AND NOT APPLE)
+    find_program(CHRPATH chrpath)
+    IF (NOT CHRPATH STREQUAL "CHRPATH-NOTFOUND")
+        SET(FOUND_CHRPATH ON)
+    endif()
+ENDIF(UNIX AND NOT APPLE)
 
 LIST(APPEND CMAKE_PREFIX_PATH "$ENV{CMAKE_PREFIX_PATH}")
 
 if(APPLE)
-	if(EXISTS "/opt/local/var/macports/")
-		LIST (APPEND CMAKE_PREFIX_PATH "/opt/local")
-		LIST (APPEND CMAKE_LIBRARY_PATH "/opt/local/lib/x86_64")
-	endif()
+  if(EXISTS "/opt/local/var/macports/")
+    LIST (APPEND CMAKE_PREFIX_PATH "/opt/local")
+    LIST (APPEND CMAKE_LIBRARY_PATH "/opt/local/lib/x86_64")
+  endif()
 endif()
 
+include(HPHPCompiler)
 include(HPHPFunctions)
 include(HPHPFindLibs)
 
-add_definitions(-D_GNU_SOURCE -D_REENTRANT=1 -D_PTHREADS=1)
-
-if(${CMAKE_BUILD_TYPE} MATCHES "Release")
-	add_definitions(-DRELEASE=1)
+if (HHVM_VERSION_OVERRIDE)
+  parse_version("HHVM_VERSION_" ${HHVM_VERSION_OVERRIDE})
+  add_definitions("-DHHVM_VERSION_OVERRIDE")
+  add_definitions("-DHHVM_VERSION_MAJOR=${HHVM_VERSION_MAJOR}")
+  add_definitions("-DHHVM_VERSION_MINOR=${HHVM_VERSION_MINOR}")
+  add_definitions("-DHHVM_VERSION_PATCH=${HHVM_VERSION_PATCH}")
+  add_definitions("-DHHVM_VERSION_SUFFIX=\"${HHVM_VERSION_SUFFIX}\"")
 endif()
 
-if(INFINITE_LOOP_DETECTION)
-	add_definitions(-DINFINITE_LOOP_DETECTION=1)
+add_definitions(-D_REENTRANT=1 -D_PTHREADS=1 -D__STDC_FORMAT_MACROS)
+
+if (LINUX)
+  add_definitions(-D_GNU_SOURCE)
 endif()
 
-if(INFINITE_RECURSION_DETECTION)
-	add_definitions(-DINFINITE_RECURSION_DETECTION=1)
+if(MSVC)
+  add_definitions(-DGLOG_NO_ABBREVIATED_SEVERITIES)
+  add_definitions(-DWIN32_LEAN_AND_MEAN)
 endif()
 
-if(REQUEST_TIMEOUT_DETECTION)
-	add_definitions(-DREQUEST_TIMEOUT_DETECTION=1)
-endif()
-
-if(ENABLE_LATE_STATIC_BINDING)
-	add_definitions(-DENABLE_LATE_STATIC_BINDING=1)
-endif()
-
-if(DEBUG_MEMORY_LEAK)
-	add_definitions(-DDEBUG_MEMORY_LEAK=1)
-endif()
-
-if(DEBUG_APC_LEAK)
-	add_definitions(-DDEBUG_APC_LEAK=1)
+if(CMAKE_CONFIGURATION_TYPES)
+  if(NOT MSVC)
+    message(FATAL_ERROR "Adding the appropriate defines for multi-config targets using anything other than MSVC is not yet supported!")
+  endif()
+  foreach(flag_var
+      CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
+      CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+    set(${flag_var} "${${flag_var}} /D NDEBUG")
+  endforeach()
+elseif(${CMAKE_BUILD_TYPE} MATCHES "Debug" OR
+       ${CMAKE_BUILD_TYPE} MATCHES "DebugOpt")
+  message("Generating DEBUG build")
+else()
+  add_definitions(-DNDEBUG)
+  message("Generating Release build")
 endif()
 
 if(ALWAYS_ASSERT)
-	add_definitions(-DALWAYS_ASSERT=1)
+  add_definitions(-DALWAYS_ASSERT=1)
 endif()
 
-if(HOTPROFILER)
-	add_definitions(-DHOTPROFILER=1)
+if(APPLE OR FREEBSD OR MSVC)
+  add_definitions(-DSKIP_USER_CHANGE=1)
 endif()
 
-if(HOTPROFILER_NO_BUILTIN)
-	add_definitions(-DHOTPROFILER_NO_BUILTIN=1)
+if(ENABLE_TRACE)
+    add_definitions(-DUSE_TRACE=1)
 endif()
 
-if(EXECUTION_PROFILER)
-	add_definitions(-DEXECUTION_PROFILER=1)
+if(APPLE)
+  # We have to be a little more permissive in some cases.
+  add_definitions(-fpermissive)
+
+  # Skip deprecation warnings in OpenSSL.
+  add_definitions(-DMAC_OS_X_VERSION_MIN_REQUIRED=MAC_OS_X_VERSION_10_6)
+
+  # Enable weak linking
+  add_definitions(-DMACOSX_DEPLOYMENT_TARGET=10.6)
 endif()
 
-if(ENABLE_FULL_SETLINE)
-	add_definitions(-DENABLE_FULL_SETLINE=1)
-endif()
+if(ENABLE_FASTCGI)
+  add_definitions(-DENABLE_FASTCGI=1)
+endif ()
 
-if(APPLE OR FREEBSD)
-	add_definitions(-DSKIP_USER_CHANGE=1)
-endif()
+if(DISABLE_HARDWARE_COUNTERS OR NOT LINUX)
+  add_definitions(-DNO_HARDWARE_COUNTERS=1)
+endif ()
 
 # enable the OSS options if we have any
 add_definitions(-DHPHP_OSS=1)
 
-execute_process(COMMAND git describe --all --long --abbrev=40 --always
-    OUTPUT_VARIABLE _COMPILER_ID OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+# later versions of binutils don't play well without automake
+add_definitions(-DPACKAGE=hhvm -DPACKAGE_VERSION=Release)
 
-if (_COMPILER_ID)
-	add_definitions(-DCOMPILER_ID="${_COMPILER_ID}")
+add_definitions(-DDEFAULT_CONFIG_DIR="${DEFAULT_CONFIG_DIR}")
+
+add_definitions(-DHAVE_INTTYPES_H)
+
+include_directories(${TP_DIR})
+if (THIRD_PARTY_INCLUDE_PATHS)
+  include_directories(${THIRD_PARTY_INCLUDE_PATHS})
+  add_definitions(${THIRD_PARTY_DEFINITIONS})
+  include_directories(${HPHP_HOME}/hphp)
+  include_directories(${HPHP_HOME})
 endif()
-
-IF($ENV{CXX} MATCHES "icpc")
-	set(CMAKE_C_FLAGS "-no-ipo -fp-model precise -wd584 -wd1418 -wd1918 -wd383 -wd869 -wd981 -wd424 -wd1419 -wd444 -wd271 -wd2259 -wd1572 -wd1599 -wd82 -wd177 -wd593 -w")
-	set(CMAKE_CXX_FLAGS "-no-ipo -fp-model precise -wd584 -wd1418 -wd1918 -wd383 -wd869 -wd981 -wd424 -wd1419 -wd444 -wd271 -wd2259 -wd1572 -wd1599 -wd82 -wd177 -wd593 -fno-omit-frame-pointer -ftemplate-depth-60 -Wall -Woverloaded-virtual -Wno-deprecated -w1 -Wno-strict-aliasing -Wno-write-strings -Wno-invalid-offsetof -fno-operator-names")
-else()
-	set(CMAKE_C_FLAGS "-w")
-	set(CMAKE_CXX_FLAGS "-fno-gcse -fno-omit-frame-pointer -ftemplate-depth-60 -Wall -Woverloaded-virtual -Wno-deprecated -Wno-parentheses -Wno-strict-aliasing -Wno-write-strings -Wno-invalid-offsetof -fno-operator-names")
-endif()
-
-IF(CMAKE_COMPILER_IS_GNUCC)
-	SET (CMAKE_C_FLAGS_RELEASE "-O3")
-ENDIF()
-
-IF(CMAKE_COMPILER_IS_GNUCXX)
-	SET (CMAKE_CXX_FLAGS_RELEASE "-O3")
-ENDIF()
-
-include_directories(${HPHP_HOME}/src)
-include_directories(${HPHP_HOME}/src/lib/system/gen)

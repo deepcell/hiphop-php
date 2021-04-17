@@ -1,0 +1,5 @@
+<?hh
+
+if (!getenv('HPHP_TEST_MCROUTER')) {
+  echo 'skip';
+}

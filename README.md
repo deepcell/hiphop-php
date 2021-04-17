@@ -1,73 +1,55 @@
-# HipHop for PHP
+# HHVM
 
-HipHop is a source code transformer which transforms PHP source code into highly optimized C++ and then compiles it using g++. Currently supported platforms are Linux and FreeBSD. There is no OS X support.
+[HHVM page](https://hhvm.com) |
+[HHVM documentation](https://docs.hhvm.com/hhvm/) |
+[Hacklang page](http://hacklang.org) |
+[General group](https://www.facebook.com/groups/hhvm.general/) |
+[Dev group](https://www.facebook.com/groups/hhvm.dev/) |
+[Twitter](https://twitter.com/HipHopVM)
 
-* [Developer Mailing List](http://groups.google.com/group/hiphop-php-dev)
-* [Wiki](http://wiki.github.com/facebook/hiphop-php)
-* [Issue Tracker](http://github.com/facebook/hiphop-php/issues)
+HHVM is an open-source virtual machine designed for executing programs written in [Hack](http://hacklang.org). HHVM uses a just-in-time (JIT) compilation approach to achieve superior performance while maintaining amazing development flexibility.
 
-## Required Packages
+HHVM should be used together with a webserver like the built in, easy to deploy [Proxygen](https://docs.hhvm.com/hhvm/basic-usage/proxygen), or a [FastCGI](https://docs.hhvm.com/hhvm/advanced-usage/fastCGI)-based webserver on top of nginx or Apache.
 
-The latest information is available on the [wiki](http://wiki.github.com/facebook/hiphop-php/building-and-installing)
+## Installing
 
-* cmake *2.6 is the minimum version*
-* g++/gcc *4.3 is the minimum version*
-* Boost *1.37 is the minimum version*
-* flex
-* bison
-* re2c
-* libmysql
-* libxml2
-* libmcrypt
-* libicu *4.2 is the minimum version*
-* openssl
-* binutils
-* libcap
-* gd
-* zlib
-* tbb *Intel's Thread Building Blocks*
-* [Oniguruma](http://www.geocities.jp/kosako3/oniguruma/)
-* libpcre
-* libexpat
-* libmemcached
+If you're new, try our [getting started guide](https://docs.hhvm.com/hhvm/getting-started/getting-started).
 
-The following packages have had slight modifications added to them. Patches are provided and should be made against the current source copies.
+You can install a [prebuilt package](https://docs.hhvm.com/hhvm/installation/introduction#prebuilt-packages) or [compile from source](https://docs.hhvm.com/hhvm/installation/building-from-source).
 
-* [libcurl](http://curl.haxx.se/download.html)
-* src/third_party/libcurl.fb-changes.diff
-* [libevent 1.4](http://www.monkey.org/~provos/libevent/)
-* src/third_party/libevent-1.4.13.fb-changes.diff	OR src/third_party/libevent-1.4.14.fb-changes.diff
+## Running
 
-## Installation
+You can run standalone programs just by passing them to hhvm: `hhvm example.hack`.
 
-You may need to point CMake to the location of your custom libcurl and libevent, or to any other libraries which needed to be installed. The *CMAKE_PREFIX_PATH* variable is used to hint to the location.
+If you want to host a website:
+* Install your favorite webserver. [Proxygen](https://docs.hhvm.com/hhvm/basic-usage/proxygen) is built into HHVM, fast and easy to deploy.
+* Install our [package](https://docs.hhvm.com/hhvm/installation/introduction#prebuilt-packages)
+* Start your webserver
+* Run `sudo /etc/init.d/hhvm start`
+* Visit your site at `http://.../main.hack`
 
-    export CMAKE_PREFIX_PATH=/home/user
+Our [getting started guide](https://docs.hhvm.com/hhvm/getting-started/getting-started) provides a slightly more detailed introduction as well as links to more information.
 
-To build HipHop, use the following:
+## Contributing
 
-Linux:
+We'd love to have your help in making HHVM better. If you're interested, please read our [guide to contributing](CONTRIBUTING.md).
 
-    cd /home/user/dev
-    git clone git://github.com/facebook/hiphop-php.git
-    cd hiphop-php
-    git submodule init
-    git submodule update
-    export HPHP_HOME=`pwd`
-    export HPHP_LIB=`pwd`/bin
-    cmake .
+## License
 
-If you are using FreeBSD instead use export - setenv
+HHVM is licensed under the PHP and Zend licenses except as otherwise noted.
 
-Once this is done you can generate the build file. This will return you to the shell. Finally, to build, run `make`. If any errors occur, it may be required to remove the CMakeCache.txt directory in the checkout.
+The [Hack typechecker](hphp/hack) is licensed under the MIT [License](hphp/hack/LICENSE) except as otherwise noted.
 
-    make
+## Reporting Crashes
 
-## Contributing to HipHop
-HipHop is licensed under the PHP and Zend licenses except as otherwise noted.
+See [Reporting Crashes](https://github.com/facebook/hhvm/wiki/Reporting-Crashes) for helpful tips on how to report crashes in an actionable manner.
 
-Before changes can be accepted a [Contributors Licensing Agreement](http://developers.facebook.com/opensource/cla) must be signed and returned.
+## Security
 
-## Running HipHop
+For information on reporting security vulnerabilities in HHVM, see [SECURITY.md](SECURITY.md).
 
-Please see [the wiki page](http://wiki.github.com/facebook/hiphop-php/running-hiphop)
+## FAQ
+
+Our [user FAQ](https://docs.hhvm.com/hhvm/FAQ/faq) has answers to many common questions about HHVM, from [general questions](https://docs.hhvm.com/hhvm/FAQ/faq#general) to questions geared towards those that want to [use](https://docs.hhvm.com/hhvm/FAQ/faq#users).
+
+There is also a FAQ for [contributors](https://github.com/facebook/hhvm/wiki/FAQ#contributors) to HHVM.

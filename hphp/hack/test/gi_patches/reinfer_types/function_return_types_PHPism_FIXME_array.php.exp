@@ -1,0 +1,8 @@
+Errors:
+  [4:10-19] Invalid return type
+  [3:16-34] Expected `varray_or_darray<[unresolved], [unresolved]>`
+  [4:10-19] But got `vec<int>` because legacy arrays have been unified with Hack arrays
+  [4:10-34] Invalid return type
+  [3:16-34] Expected `varray_or_darray<[unresolved], [unresolved]>`
+  [4:10-34] But got `dict<int, string>` because legacy arrays have been unified with Hack arrays
+No patches

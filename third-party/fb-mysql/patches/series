@@ -1,0 +1,2 @@
+cmake-libatomic.patch
+zstd-include-path.patch

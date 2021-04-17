@@ -1,0 +1,17 @@
+\A:
+  A (PAT)
+
+\B:
+  B
+  A
+
+\C:
+  C (PAT)
+  B
+  A
+
+\D:
+  D
+  C
+  B
+  A

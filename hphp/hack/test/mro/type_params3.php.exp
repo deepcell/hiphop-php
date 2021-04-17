@@ -1,0 +1,11 @@
+\C:
+  C
+
+\D:
+  D
+  C<int, T3>
+
+\E:
+  E
+  D<string>
+  C<int, string>

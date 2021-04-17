@@ -1,0 +1,5 @@
+<?hh
+
+if(!extension_loaded('sysvsem') || !extension_loaded('pcntl')) {
+  die("skip sysvsem and pcntl required");
+}
